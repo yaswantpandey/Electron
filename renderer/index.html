@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:5174;">
+<title>Sudarshan AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Tokens ──────────────────────────────────────────────────────── */
+:root {
+  --bg:        #14171A;
+  --panel:     #1B1F23;
+  --panel-2:   #20242A;
+  --border:    #262B30;
+  --text:      #E7E9EB;
+  --text-dim:  #878E95;
+  --text-faint:#565C62;
+  --crit:      #C1483F;
+  --high:      #C9823E;
+  --med:       #D9BB55;
+  --low:       #5B8C72;
+  --info:      #4A90D9;
+  --mono:      "IBM Plex Mono", ui-monospace, monospace;
+  --sans:      "IBM Plex Sans", system-ui, sans-serif;
+  --radius:    5px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; scroll-behavior: smooth; }
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.app  { display: flex; height: 100vh; overflow: hidden; }
+.rail { width: 220px; flex: 0 0 220px; border-right: 1px solid var(--border);
+        display: flex; flex-direction: column; padding: 18px 12px; gap: 3px;
+        overflow-y: auto; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.content { flex: 1; overflow-y: auto; padding: 28px 32px 60px; display: flex; flex-direction: column; }
+.content > .view.active { flex: 1; }
+.content > .view-max.active { flex: 1; overflow: hidden; padding: 0; margin: 0; }
+
+/* ── Rail ────────────────────────────────────────────────────────────────── */
+.brand {
+  font-family: var(--mono); font-size: 13px; padding: 4px 8px 16px;
+  border-bottom: 1px solid var(--border); margin-bottom: 10px; color: var(--text);
+  -webkit-app-region: drag;
+}
+.brand .dot { color: var(--low); }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: var(--radius); color: var(--text-dim); cursor: pointer;
+  font-size: 13px; border: 1px solid transparent; user-select: none;
+  transition: color .12s, background .12s;
+}
+.nav-item svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.nav-item:hover { color: var(--text); background: var(--panel); }
+.nav-item.active { color: var(--text); background: var(--panel-2); border-color: var(--border); }
+.rail-foot { margin-top: auto; padding: 10px 8px 0; font-size: 11.5px;
+             color: var(--text-faint); border-top: 1px solid var(--border); }
+.rail-foot b { color: var(--text-dim); }
+
+/* ── Topbar ──────────────────────────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px; border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.topbar-left h1 { font-size: 15px; font-weight: 600; }
+.topbar-left .sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* Backend status pill */
+.be-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11.5px; padding: 4px 10px;
+  border-radius: 20px; border: 1px solid var(--border); color: var(--text-faint);
+}
+.be-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.be-pill.ready  .dot { background: var(--low);  animation: none; }
+.be-pill.loading .dot { background: var(--med);  animation: pulse 1s infinite; }
+.be-pill.error   .dot { background: var(--crit); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Views ───────────────────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
+.view-max { display: none; }
+.view-max.active { display: flex; flex-direction: column; flex: 1; height: 100%; overflow: hidden; }
+
+/* ── Shared components ───────────────────────────────────────────────────── */
+.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+                 color: var(--text-faint); margin-bottom: 14px; font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.btn {
+  font-family: var(--sans); border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); padding: 9px 16px;
+  border-radius: var(--radius); font-size: 13px; cursor: pointer;
+  transition: filter .12s, opacity .12s; white-space: nowrap;
+}
+.btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+.btn.danger  { border-color: var(--crit); color: var(--crit); }
+.btn:not(:disabled):hover { filter: brightness(1.12); }
+.btn:disabled { opacity: .38; cursor: not-allowed; filter: none; }
+.btn-sm { padding: 5px 11px; font-size: 12px; }
+
+/* ── Form elements ───────────────────────────────────────────────────────── */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+.input-row { display: flex; gap: 8px; }
+.input-row input { flex: 1; }
+input[type=text], select, textarea {
+  width: 100%; background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 11px; border-radius: var(--radius);
+  font-family: var(--mono); font-size: 12.5px; outline: none;
+  transition: border-color .12s;
+}
+input[type=text]:focus, select:focus, textarea:focus { border-color: var(--text-dim); }
+input[type=text]::placeholder { color: var(--text-faint); }
+
+/* Mode selector */
+.modes { display: flex; gap: 8px; }
+.mode-btn {
+  flex: 1; padding: 10px 12px; border: 1px solid var(--border);
+  background: var(--panel); border-radius: var(--radius); color: var(--text-dim);
+  cursor: pointer; font-size: 12.5px; text-align: left; transition: border-color .12s, background .12s;
+}
+.mode-btn .m-title { color: var(--text); font-weight: 600; display: block; margin-bottom: 2px; font-size: 13px; }
+.mode-btn.sel { border-color: var(--text-dim); background: var(--panel-2); }
+.mode-btn:hover:not(.sel) { border-color: var(--border); background: var(--panel-2); }
+
+/* Row of two fields */
+.row2 { display: flex; gap: 14px; }
+.row2 > .field { flex: 1; }
+
+/* Advanced details panel */
+.adv { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); margin-bottom: 16px; }
+.adv summary {
+  padding: 10px 12px; cursor: pointer; font-size: 12.5px; color: var(--text-dim);
+  list-style: none; display: flex; align-items: center; gap: 7px;
+}
+.adv summary::before { content: "›"; color: var(--text-faint); display: inline-block; transition: transform .12s; }
+.adv[open] summary::before { transform: rotate(90deg); }
+.adv-body { padding: 4px 12px 14px; border-top: 1px solid var(--border); }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.toggle-row:first-child { border-top: none; }
+.t-label { font-size: 13px; }
+.t-note  { font-size: 11.5px; color: var(--text-faint); margin-top: 3px; }
+.switch {
+  width: 34px; height: 19px; border-radius: 10px; background: var(--border);
+  position: relative; cursor: pointer; flex: 0 0 auto; transition: background .12s;
+}
+.switch.on { background: var(--high); }
+.switch .knob {
+  width: 15px; height: 15px; border-radius: 50%; background: var(--text);
+  position: absolute; top: 2px; left: 2px; transition: left .12s ease;
+}
+.switch.on .knob { left: 17px; }
+
+/* Auth box */
+.authbox {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 14px;
+  margin: 18px 0; display: flex; gap: 11px; align-items: flex-start;
+  background: var(--panel);
+}
+.authbox input[type=checkbox] { margin-top: 3px; accent-color: var(--low); cursor: pointer; }
+.authbox p { font-size: 13px; margin: 0; }
+.authbox .fine { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; }
+
+/* ── Running view ────────────────────────────────────────────────────────── */
+.tool-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.tool-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); font-family: var(--mono); font-size: 12.5px;
+}
+.tool-row .state { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.state.running { background: var(--high); animation: pulse 1s infinite; }
+.state.done    { background: var(--low); }
+.state.pending { background: var(--text-faint); }
+.state.error   { background: var(--crit); }
+.tool-row .t-name   { color: var(--text); width: 110px; flex: 0 0 auto; }
+.tool-row .t-status { color: var(--text-faint); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.log-wrap { background: #0F1113; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+            height: 220px; overflow-y: auto; }
+.log-wrap .ll { white-space: pre-wrap; margin-bottom: 2px; line-height: 1.45; }
+.ll.phase { color: var(--info);      font-weight: 600; margin-top: 6px; }
+.ll.tool  { color: var(--text-dim); }
+.ll.done  { color: var(--low); }
+.ll.warn  { color: var(--high); }
+.ll.error { color: var(--crit); }
+.ll.info  { color: var(--text-faint); }
+
+.scan-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+.progress-bar-wrap { flex: 1; height: 3px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--low); border-radius: 3px; transition: width .4s ease; }
+
+/* ── Report view ─────────────────────────────────────────────────────────── */
+.exec {
+  border: 1px solid var(--border); background: var(--panel);
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 22px;
+}
+.exec h3 { font-size: 13.5px; margin-bottom: 8px; }
+.exec p  { color: var(--text-dim); font-size: 13px; }
+.sevbar  { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.sevchip {
+  font-family: var(--mono); font-size: 11px; padding: 3px 9px;
+  border-radius: 3px; font-weight: 500;
+}
+.sevchip.crit { background: rgba(193,72,63,.15);  color: var(--crit); }
+.sevchip.high { background: rgba(201,130,62,.15); color: var(--high); }
+.sevchip.med  { background: rgba(217,187,85,.15); color: var(--med); }
+.sevchip.low  { background: rgba(91,140,114,.15); color: var(--low); }
+
+/* Raw Markdown viewer */
+.md-viewer {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 24px; font-size: 13px; color: var(--text-dim); line-height: 1.7;
+  overflow-x: auto;
+}
+.md-viewer h1, .md-viewer h2, .md-viewer h3, .md-viewer h4 { color: var(--text); margin: 18px 0 8px; }
+.md-viewer h1 { font-size: 18px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.md-viewer h2 { font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+.md-viewer h3 { font-size: 13.5px; }
+.md-viewer h4 { font-size: 12.5px; color: var(--text-dim); }
+.md-viewer .md-table, .md-viewer table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 12.5px; }
+.md-viewer th { text-align: left; color: var(--text-faint); padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--panel-2); }
+.md-viewer td { padding: 6px 10px; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+.md-viewer tr:hover td { background: rgba(255,255,255,.02); }
+.md-viewer pre { background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+                 padding: 10px 12px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
+.md-viewer code { font-family: var(--mono); font-size: 12px; background: var(--panel); padding: 1px 5px; border-radius: 3px; }
+.md-viewer pre code { background: none; padding: 0; }
+.md-viewer p { margin: 6px 0; }
+.md-viewer ul, .md-viewer ol { padding-left: 22px; margin: 6px 0; }
+.md-viewer li { margin: 3px 0; color: var(--text-dim); }
+.md-viewer strong { color: var(--text); }
+.md-viewer blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--text-faint); margin: 8px 0; }
+.md-viewer hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.md-viewer a { color: var(--info); text-decoration: none; }
+.md-viewer a:hover { text-decoration: underline; }
+.md-viewer details { margin: 8px 0; }
+.md-viewer summary { cursor: pointer; color: var(--text-dim); }
+
+.report-actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+
+/* ── History view ────────────────────────────────────────────────────────── */
+.hist-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 8px; cursor: pointer; background: var(--panel);
+  transition: background .1s;
+}
+.hist-row:hover { background: var(--panel-2); }
+.hist-row .h-icon  { color: var(--text-faint); flex: 0 0 auto; line-height: 0; }
+.hist-row .h-target { font-family: var(--mono); font-size: 12.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.hist-row .h-meta  { color: var(--text-faint); font-size: 11.5px; width: 100px; flex: 0 0 auto; font-family: var(--mono); }
+.hist-row .h-date  { color: var(--text-faint); font-size: 11.5px; text-align: right; flex: 0 0 auto; }
+
+.empty {
+  color: var(--text-faint); font-size: 13px; padding: 36px 0; text-align: center;
+  border: 1px dashed var(--border); border-radius: var(--radius);
+}
+
+/* ── OWASP table ─────────────────────────────────────────────────────────── */
+.owasp { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+.owasp th { text-align: left; color: var(--text-faint); font-weight: 500;
+            padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.owasp td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+.owasp td.num { font-family: var(--mono); color: var(--text-faint); }
+
+/* ── Loading overlay ─────────────────────────────────────────────────────── */
+#boot-overlay {
+  position: fixed; inset: 0; background: var(--bg); z-index: 999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+}
+.boot-logo { font-family: var(--mono); font-size: 22px; color: var(--low); letter-spacing: .05em; }
+.boot-sub  { font-size: 12.5px; color: var(--text-faint); font-family: var(--mono); }
+.spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--low);
+           border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Misc ────────────────────────────────────────────────────────────────── */
+.badge {
+  font-family: var(--mono); font-size: 10px; padding: 2px 7px;
+  border-radius: 3px; font-weight: 600; flex: 0 0 auto;
+}
+.badge.crit { background: rgba(193,72,63,.18); color: var(--crit); }
+.badge.high { background: rgba(201,130,62,.18); color: var(--high); }
+.badge.med  { background: rgba(217,187,85,.18); color: var(--med);  }
+.badge.low  { background: rgba(91,140,114,.18); color: var(--low);  }
+
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.unverified {
+  display: inline-block; margin-top: 10px; font-family: var(--mono); font-size: 11px;
+  color: var(--med); border: 1px solid var(--border); padding: 3px 8px; border-radius: 3px;
+}
+
+/* Notification toast */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 16px; font-size: 13px; color: var(--text);
+  opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s;
+  pointer-events: none; z-index: 100;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 720px) {
+  .rail  { display: none; }
+  .row2  { flex-direction: column; }
+  .modes { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- Boot overlay: shown while Flask is starting up -->
+<div id="boot-overlay">
+  <div class="boot-logo">● sudarshan/ai</div>
+  <div class="spinner"></div>
+  <div class="boot-sub" id="boot-msg">Starting backend…</div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<div class="app" id="app" style="display:none">
+
+  <!-- ── Sidebar rail ───────────────────────────────────────────────────── -->
+  <nav class="rail">
+    <div class="brand"><span class="dot">●</span> sudarshan<span style="color:var(--text-faint)">/ai</span></div>
+
+    <div class="nav-item active" data-view="scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      New scan
+    </div>
+    <div class="nav-item" data-view="run">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Running
+      <span id="run-badge" style="display:none;margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--high);flex-shrink:0;animation:pulse 1s infinite"></span>
+    </div>
+    <div class="nav-item" data-view="report">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+      Report
+    </div>
+    <div class="nav-item" data-view="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+      History
+    </div>
+
+    <div class="rail-foot">
+      Local only.<br><b>No scan data leaves this machine.</b>
+    </div>
+  </nav>
+
+  <!-- ── Main area ─────────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="topTitle">New scan</h1>
+        <div class="sub" id="topSub">Configure and launch a scan against an authorized target</div>
+      </div>
+      <div class="topbar-right">
+        <div class="be-pill loading" id="bePill">
+          <div class="dot"></div>
+          <span id="beLabel">connecting…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" id="mainContent">
+
+      <!-- ══ SCAN VIEW ══════════════════════════════════════════════════════ -->
+      <section class="view active" id="view-scan">
+
+        <div class="field">
+          <label>Scan mode</label>
+          <div class="modes">
+            <div class="mode-btn sel" data-mode="url">
+              <span class="m-title">url</span>A live, authorized website
+            </div>
+            <div class="mode-btn" data-mode="localhost">
+              <span class="m-title">localhost</span>Your own app in development
+            </div>
+            <div class="mode-btn" data-mode="codebase">
+              <span class="m-title">codebase</span>Source only, no live requests
+            </div>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label id="targetLabel">Target URL</label>
+            <div class="input-row">
+              <input type="text" id="targetInput" placeholder="https://your-authorized-target.com">
+              <button class="btn btn-sm" id="browseBtn" style="display:none" title="Browse for folder">📁</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Analysis model</label>
+            <select id="modelSelect">
+              <option value="hf.co/redponike/Llama-3-WhiteRabbitNeo-8B-v2.0-GGUF:Q4_K_M">WhiteRabbitNeo-8B (default)</option>
+              <option value="llama3.1">llama3.1</option>
+              <option value="deepseek-coder-v2">deepseek-coder-v2</option>
+              <option value="codellama">codellama</option>
+            </select>
+          </div>
+        </div>
+
+        <details class="adv" id="advPanel">
+          <summary>Advanced options</summary>
+          <div class="adv-body">
+            <div class="row2" style="margin-top:12px">
+              <div class="field">
+                <label>ffuf wordlist</label>
+                <div class="input-row">
+                  <input type="text" id="wordlistInput" value="/usr/share/wordlists/dirb/common.txt">
+                  <button class="btn btn-sm" id="wordlistBrowse" title="Browse for wordlist">📄</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>nuclei severity</label>
+                <input type="text" id="nucleiSev" value="low,medium,high,critical">
+              </div>
+            </div>
+            <div class="field">
+              <label>Ollama host</label>
+              <input type="text" id="ollamaHost" value="http://localhost:11434">
+            </div>
+            <div class="toggle-row">
+              <div>
+                <div class="t-label">Enable sqlmap</div>
+                <div class="t-note">Sends a large volume of requests. Off by default — confirm before every run.</div>
+              </div>
+              <div class="switch" id="sqlmapSwitch"><div class="knob"></div></div>
+            </div>
+          </div>
+        </details>
+
+        <div class="authbox">
+          <input type="checkbox" id="authCheck">
+          <div>
+            <p>I own this target, or I have explicit written authorization to test it.</p>
+            <div class="fine">Required for every run. Not remembered between scans.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn primary" id="startBtn" disabled>Start scan →</button>
+          <span id="startError" style="color:var(--crit);font-size:12.5px;display:none"></span>
+        </div>
+
+        <!-- OWASP coverage reference -->
+        <div class="divider"></div>
+        <div class="section-title">OWASP Top 10 (2021) — Tool Coverage</div>
+        <table class="owasp">
+          <tr><th>ID</th><th>Category</th><th>Primary Tool(s)</th></tr>
+          <tr><td class="num">A01</td><td>Broken Access Control</td><td>ffuf</td></tr>
+          <tr><td class="num">A02</td><td>Cryptographic Failures</td><td>nuclei / testssl.sh (manual)</td></tr>
+          <tr><td class="num">A03</td><td>Injection (SQLi / XSS)</td><td>sqlmap, nuclei</td></tr>
+          <tr><td class="num">A04</td><td>Insecure Design</td><td>semgrep (codebase mode)</td></tr>
+          <tr><td class="num">A05</td><td>Security Misconfiguration</td><td>nuclei, ffuf</td></tr>
+          <tr><td class="num">A06</td><td>Vulnerable &amp; Outdated Components</td><td>nuclei, pip-audit, npm audit</td></tr>
+          <tr><td class="num">A07</td><td>Authentication Failures</td><td>nuclei, manual</td></tr>
+          <tr><td class="num">A08</td><td>Software &amp; Data Integrity Failures</td><td>gitleaks</td></tr>
+          <tr><td class="num">A09</td><td>Logging &amp; Monitoring Failures</td><td>manual review</td></tr>
+          <tr><td class="num">A10</td><td>SSRF</td><td>nuclei</td></tr>
+        </table>
+      </section>
+
+      <!-- ══ RUNNING VIEW ═══════════════════════════════════════════════════ -->
+      <section class="view" id="view-run">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div class="section-title" style="margin-bottom:2px">Live scan</div>
+            <div id="runTarget" style="font-family:var(--mono);font-size:12.5px;color:var(--text-dim)">—</div>
+          </div>
+          <div id="runStatusBadge" style="font-family:var(--mono);font-size:12px;color:var(--text-faint)">idle</div>
+        </div>
+
+        <div class="tool-list" id="toolList">
+          <!-- populated by JS -->
+        </div>
+
+        <div class="log-wrap" id="logBox">
+          <div class="ll info">Waiting for scan to start…</div>
+        </div>
+
+        <div class="scan-actions">
+          <button class="btn btn-sm danger" id="cancelBtn" disabled>Cancel</button>
+          <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+          <span id="progressLabel" style="font-family:var(--mono);font-size:11.5px;color:var(--text-faint)">0%</span>
+        </div>
+      </section>
+
+      <!-- ══ REPORT VIEW ════════════════════════════════════════════════════ -->
+      <section class="view view-max" id="view-report">
+        <div id="report-placeholder" class="empty" style="margin:28px 32px">
+          No report yet — run a scan first.
+        </div>
+        <iframe
+          id="reportFrame"
+          src="report-viewer.html"
+          style="display:none;flex:1;width:100%;border:none;background:#0E1117"
+          sandbox="allow-scripts allow-same-origin"
+        ></iframe>
+      </section>
+
+      <!-- ══ HISTORY VIEW ═══════════════════════════════════════════════════ -->
+      <section class="view" id="view-history">
+        <div class="section-title">Past scans</div>
+        <div id="histList">
+          <div class="empty">Loading history…</div>
+        </div>
+      </section>
+
+
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script src="marked.min.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>

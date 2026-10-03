@@ -1,0 +1,19 @@
+{
+  "name": "sudarshan-ai",
+  "version": "1.0.0",
+  "description": "Sudarshan AI — OWASP-aligned Security Scanner with AI Analysis",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": ["security", "bug-bounty", "owasp", "electron"],
+  "author": "Sudarshan AI",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  },
+  "dependencies": {
+    "marked": "^12.0.0"
+  }
+}

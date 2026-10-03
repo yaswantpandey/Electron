@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sudarshan AI — Report Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ──────────────────────────────────────────────────────────────── */
+:root {
+  --bg:          #0E1117;
+  --surface:     #141820;
+  --surface-2:   #1A1F2A;
+  --surface-3:   #1F2533;
+  --border:      #262D3A;
+  --border-dim:  #1E242F;
+  --text:        #E8EBF0;
+  --text-dim:    #8892A0;
+  --text-faint:  #505A68;
+  --crit:        #E05252;
+  --crit-bg:     rgba(224,82,82,.12);
+  --high:        #E08C3E;
+  --high-bg:     rgba(224,140,62,.12);
+  --med:         #D4B84A;
+  --med-bg:      rgba(212,184,74,.1);
+  --low:         #52A874;
+  --low-bg:      rgba(82,168,116,.1);
+  --info:        #4E9FE0;
+  --info-bg:     rgba(78,159,224,.1);
+  --none:        #505A68;
+  --none-bg:     rgba(80,90,104,.12);
+  --accent:      #52A874;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --r: 6px;
+  --r-sm: 4px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 80px;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+/* ── LAYOUT ──────────────────────────────────────────────────────────────── */
+.page { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+/* ── TOP HEADER STRIP ────────────────────────────────────────────────────── */
+.report-header {
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0 20px;
+  margin-bottom: 28px;
+}
+.rh-brand {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rh-brand::before {
+  content: '';
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.rh-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+  word-break: break-all;
+}
+.rh-title .target-url {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 18px;
+}
+.meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.meta-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.meta-pill .pill-key {
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.meta-pill .pill-val {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+/* ── WARNING BANNER ──────────────────────────────────────────────────────── */
+.auth-banner {
+  background: rgba(212,184,74,.06);
+  border: 1px solid rgba(212,184,74,.2);
+  border-radius: var(--r);
+  padding: 11px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--med);
+  margin-bottom: 28px;
+}
+.auth-banner .icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── SECTION HEADINGS ────────────────────────────────────────────────────── */
+.section-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-faint);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.section-wrap { margin-bottom: 36px; }
+
+/* ── EXECUTIVE SUMMARY CARD ──────────────────────────────────────────────── */
+.exec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px 22px;
+}
+.exec-card .exec-text {
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+.exec-card .exec-text p { margin-bottom: 10px; }
+.exec-card .exec-text p:last-child { margin-bottom: 0; }
+
+/* ── SEVERITY OVERVIEW ───────────────────────────────────────────────────── */
+.sev-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.sev-box {
+  flex: 1;
+  min-width: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sev-box .sev-count {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+}
+.sev-box .sev-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 500;
+}
+.sev-box.crit { border-color: rgba(224,82,82,.25); }
+.sev-box.crit .sev-count { color: var(--crit); }
+.sev-box.crit .sev-label { color: var(--crit); opacity: .7; }
+.sev-box.high { border-color: rgba(224,140,62,.25); }
+.sev-box.high .sev-count { color: var(--high); }
+.sev-box.high .sev-label { color: var(--high); opacity: .7; }
+.sev-box.med  { border-color: rgba(212,184,74,.25); }
+.sev-box.med  .sev-count { color: var(--med); }
+.sev-box.med  .sev-label { color: var(--med); opacity: .7; }
+.sev-box.low  { border-color: rgba(82,168,116,.25); }
+.sev-box.low  .sev-count { color: var(--low); }
+.sev-box.low  .sev-label { color: var(--low); opacity: .7; }
+.sev-box.info-b { border-color: rgba(78,159,224,.25); }
+.sev-box.info-b .sev-count { color: var(--info); }
+.sev-box.info-b .sev-label { color: var(--info); opacity: .7; }
+
+/* ── OWASP TABLE ─────────────────────────────────────────────────────────── */
+.owasp-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.owasp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.owasp-table th {
+  text-align: left;
+  color: var(--text-faint);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.owasp-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-dim);
+  vertical-align: middle;
+}
+.owasp-table tr:last-child td { border-bottom: none; }
+.owasp-table tr:hover td { background: var(--surface-2); }
+.owasp-table .owasp-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  width: 44px;
+}
+.owasp-table .owasp-tools {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--info);
+}
+
+/* ── TOOL SECTION ────────────────────────────────────────────────────────── */
+.tool-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .1s;
+}
+.tool-header:hover { background: var(--surface-2); }
+.tool-state-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-ok      { background: var(--low); }
+.dot-skip    { background: var(--border); border: 1px solid var(--text-faint); }
+.dot-error   { background: var(--crit); }
+.dot-timeout { background: var(--med); }
+.tool-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  min-width: 90px;
+}
+.tool-summary {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-chevron {
+  color: var(--text-faint);
+  font-size: 16px;
+  transition: transform .15s;
+  flex-shrink: 0;
+}
+.tool-section.open .tool-chevron { transform: rotate(90deg); }
+.tool-body {
+  display: none;
+  border-top: 1px solid var(--border);
+}
+.tool-section.open .tool-body { display: block; }
+
+/* Analysis block */
+.analysis-block {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-dim);
+}
+.analysis-block .analysis-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-faint);
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.analysis-block .analysis-label::before {
+  content: '';
+  width: 12px; height: 1px;
+  background: var(--text-faint);
+  display: inline-block;
+}
+.analysis-text {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.72;
+  white-space: pre-wrap;
+}
+
+/* Finding chips inside analysis */
+.finding-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.finding-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+.finding-chip.crit { background: var(--crit-bg); color: var(--crit); border: 1px solid rgba(224,82,82,.2); }
+.finding-chip.high { background: var(--high-bg); color: var(--high); border: 1px solid rgba(224,140,62,.2); }
+.finding-chip.med  { background: var(--med-bg);  color: var(--med);  border: 1px solid rgba(212,184,74,.2); }
+.finding-chip.low  { background: var(--low-bg);  color: var(--low);  border: 1px solid rgba(82,168,116,.2); }
+.finding-chip.info { background: var(--info-bg); color: var(--info); border: 1px solid rgba(78,159,224,.2); }
+
+/* Raw output collapsible */
+.raw-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border-dim);
+  user-select: none;
+  transition: background .1s;
+}
+.raw-toggle:hover { background: var(--surface-2); }
+.raw-toggle .raw-chevron { font-size: 12px; transition: transform .12s; }
+.raw-toggle.raw-open .raw-chevron { transform: rotate(90deg); }
+.raw-output {
+  display: none;
+  background: #0A0D12;
+  border-bottom: 1px solid var(--border-dim);
+}
+.raw-output.visible { display: block; }
+.raw-output pre {
+  padding: 14px 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: #7D8A98;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.55;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.raw-output pre .hit   { color: var(--low); }
+.raw-output pre .path  { color: var(--info); }
+.raw-output pre .s200  { color: var(--low); }
+.raw-output pre .s301  { color: var(--info); }
+.raw-output pre .s403  { color: var(--text-faint); }
+.raw-output pre .s404  { color: var(--text-faint); opacity: .6; }
+.raw-output pre .err   { color: var(--crit); }
+
+/* Subdomain pills */
+.subdomain-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 18px;
+}
+.sub-pill {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  transition: border-color .1s, color .1s;
+}
+.sub-pill:hover { border-color: var(--accent); color: var(--accent); }
+
+/* URL/endpoint table */
+.endpoint-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.endpoint-table th {
+  text-align: left;
+  color: var(--text-faint);
+  font-weight: 500;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.endpoint-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-dim);
+  vertical-align: middle;
+}
+.endpoint-table tr:last-child td { border-bottom: none; }
+.endpoint-table tr:hover td { background: var(--surface-2); }
+.endpoint-table .ep-url {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--info);
+  word-break: break-all;
+}
+.endpoint-table .ep-status {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-align: center;
+  width: 60px;
+}
+.ep-status.s200 { color: var(--low); }
+.ep-status.s301 { color: var(--info); }
+.ep-status.s403 { color: var(--text-faint); }
+.ep-status.s404 { color: var(--text-faint); opacity: .5; }
+.ep-meta { color: var(--text-faint); font-size: 11px; font-family: var(--mono); }
+
+/* ffuf table */
+.ffuf-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ffuf-table th {
+  text-align: left;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.ffuf-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-dim);
+  vertical-align: middle;
+}
+.ffuf-table tr:last-child td { border-bottom: none; }
+.ffuf-table tr:hover td { background: rgba(255,255,255,.015); }
+.ffuf-path { font-family: var(--mono); font-size: 11.5px; color: var(--info); }
+.ffuf-note { font-size: 11.5px; font-family: var(--mono); color: var(--text-faint); }
+
+/* ── STATUS CHIPS ────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.badge.crit { background: var(--crit-bg); color: var(--crit); }
+.badge.high { background: var(--high-bg); color: var(--high); }
+.badge.med  { background: var(--med-bg);  color: var(--med); }
+.badge.low  { background: var(--low-bg);  color: var(--low); }
+.badge.info { background: var(--info-bg); color: var(--info); }
+.badge.skip { background: var(--none-bg); color: var(--none); }
+
+/* ── NEXT STEPS ──────────────────────────────────────────────────────────── */
+.steps-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 20px;
+}
+.step-item {
+  display: flex;
+  gap: 13px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-dim);
+}
+.step-item:last-child { border-bottom: none; }
+.step-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--low-bg);
+  border: 1px solid rgba(82,168,116,.2);
+  border-radius: var(--r-sm);
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.step-text { font-size: 13px; color: var(--text-dim); line-height: 1.65; }
+.step-text strong { color: var(--text); }
+
+/* ── FOOTER ──────────────────────────────────────────────────────────────── */
+.report-footer {
+  border-top: 1px solid var(--border);
+  padding: 18px 0;
+  margin-top: 36px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.report-footer .unverified-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--med);
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 1px solid rgba(212,184,74,.2);
+  background: rgba(212,184,74,.05);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+/* ── ACTION BAR ──────────────────────────────────────────────────────────── */
+.action-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 7px 14px;
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: background .1s, color .1s, border-color .1s;
+  white-space: nowrap;
+}
+.btn-action:hover { background: var(--surface-2); color: var(--text); border-color: var(--text-faint); }
+.btn-action.primary {
+  background: var(--low-bg);
+  color: var(--low);
+  border-color: rgba(82,168,116,.3);
+}
+.btn-action.primary:hover { background: rgba(82,168,116,.2); }
+
+/* ── EMPTY / ERROR states ────────────────────────────────────────────────── */
+.skipped-note {
+  padding: 12px 18px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ollama-error {
+  padding: 12px 18px;
+  color: var(--crit);
+  font-family: var(--mono);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ollama-error::before { content: '✗'; }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .sev-strip { gap: 7px; }
+  .sev-box   { min-width: 70px; padding: 10px 12px; }
+  .sev-box .sev-count { font-size: 20px; }
+  .meta-grid { gap: 5px; }
+  .page { padding: 0 14px; }
+  .rh-title { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="page" id="reportRoot">
+  <!-- Report is injected here by renderReport() -->
+  <div style="padding:60px 0;text-align:center;color:var(--text-faint);font-family:var(--mono)">
+    Loading report…
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   SUDARSHAN REPORT RENDERER
+   Parses the Markdown from api_server and renders a rich HTML report.
+   Called from the parent window via postMessage or directly from renderer.js
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// ── Entry points ─────────────────────────────────────────────────────────────
+
+// 1) Accept data via postMessage from parent frame
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'render-report') {
+    renderReport(e.data.md, e.data.filePath);
+  }
+});
+
+// 2) Called directly if embedded in same page
+window.renderSudarshanReport = function(md, filePath) {
+  renderReport(md, filePath);
+};
+
+/* ── MAIN RENDER ─────────────────────────────────────────────────────────── */
+function renderReport(rawMd, filePath) {
+  const root = document.getElementById('reportRoot');
+  if (!root || !rawMd) return;
+
+  const data = parseMd(rawMd);
+  root.innerHTML = buildHTML(data, rawMd, filePath);
+  wireInteractions(root);
+}
+
+/* ── PARSER ──────────────────────────────────────────────────────────────── */
+function parseMd(md) {
+  const lines = md.split('\n');
+  const data  = {
+    target:    '',
+    mode:      '',
+    model:     '',
+    generated: '',
+    authNote:  '',
+    execSummary: '',
+    tools:     [],   // [{name, rawOutput, analysis}]
+    nextSteps: [],
+  };
+
+  // ── Extract meta table ──────────────────────────────────────────────────
+  const targetM = md.match(/\|\s*\*\*Target\*\*\s*\|\s*`([^`]+)`/);
+  const modeM   = md.match(/\|\s*\*\*Mode\*\*\s*\|\s*`([^`]+)`/);
+  const modelM  = md.match(/\|\s*\*\*Model\*\*\s*\|\s*`([^`]+)`/);
+  const genM    = md.match(/\|\s*\*\*Generated\*\*\s*\|\s*([^|]+)/);
+  if (targetM) data.target    = targetM[1].trim();
+  if (modeM)   data.mode      = modeM[1].trim();
+  if (modelM)  data.model     = modelM[1].trim();
+  if (genM)    data.generated = genM[1].trim();
+
+  // ── Auth note (blockquote) ──────────────────────────────────────────────
+  const authM = md.match(/^>\s*\*\*Authorization reminder.*?\n((?:>.*?\n)*)/m);
+  if (authM) data.authNote = md.match(/^(>.*)/mg)?.map(l => l.replace(/^>\s?/, '')).join(' ') || '';
+
+  // ── Executive Summary ───────────────────────────────────────────────────
+  const execM = md.match(/## Executive Summary\n+([\s\S]*?)(?=\n## |\n### |$)/);
+  if (execM) data.execSummary = execM[1].trim();
+
+  // ── Tools: parse each "### Tool: `<name>`" section ─────────────────────
+  const toolBlocks = [...md.matchAll(/### Tool: `([^`]+)`([\s\S]*?)(?=\n### Tool:|## Recommended|---\n_Report|$)/g)];
+  toolBlocks.forEach(m => {
+    const name       = m[1].trim();
+    const body       = m[2];
+    // Raw output inside ```
+    const rawM       = body.match(/```\n?([\s\S]*?)```/);
+    const rawOutput  = rawM ? rawM[1].trim() : '';
+    // AI analysis (text after **AI Analysis (Sudarshan)**)
+    const analysisM  = body.match(/\*\*AI Analysis \(Sudarshan\)\*\*\n+([\s\S]*?)(?=\n---|\n### |$)/);
+    const analysis   = analysisM ? analysisM[1].trim() : '';
+    data.tools.push({ name, rawOutput, analysis });
+  });
+
+  // ── Next steps ──────────────────────────────────────────────────────────
+  const stepsM = md.match(/## Recommended Next Steps\n+([\s\S]*?)(?=\n---|\n## |$)/);
+  if (stepsM) {
+    data.nextSteps = stepsM[1].trim()
+      .split('\n')
+      .filter(l => /^\d+\./.test(l.trim()))
+      .map(l => l.replace(/^\d+\.\s*/, '').trim());
+  }
+
+  return data;
+}
+
+/* ── HTML BUILDER ────────────────────────────────────────────────────────── */
+function buildHTML(data, rawMd, filePath) {
+  const parts = [];
+
+  // ── Action bar ──────────────────────────────────────────────────────────
+  parts.push(`<div class="action-bar">
+    <button class="btn-action primary" onclick="window.parent?.postMessage({type:'save-report',md:window._reportMd,path:'${esc(filePath||'')}'},'*');window._saveReport?.()">
+      ⬇ Save .md
+    </button>
+    <button class="btn-action" onclick="window.parent?.postMessage({type:'reveal-report',path:'${esc(filePath||'')}'},'*');window._revealReport?.()">
+      📂 Show in folder
+    </button>
+    <button class="btn-action" onclick="window.parent?.postMessage({type:'new-scan'},'*');window._newScan?.()">
+      + New scan
+    </button>
+  </div>`);
+
+  // Store for button access
+  parts.push(`<script>window._reportMd = ${JSON.stringify(rawMd)};<\/script>`);
+
+  // ── Report header ───────────────────────────────────────────────────────
+  parts.push(`<div class="report-header">
+    <div class="rh-brand">Sudarshan AI · Security Scan Report</div>
+    <div class="rh-title">
+      Scan: <span class="target-url">${esc(data.target || '—')}</span>
+    </div>
+    <div class="meta-grid">
+      ${metaPill('mode',      data.mode      || '—')}
+      ${metaPill('model',     shortModel(data.model))}
+      ${metaPill('generated', data.generated || '—')}
+      ${metaPill('status',    '⚠ unverified')}
+    </div>
+  </div>`);
+
+  // ── Auth banner ─────────────────────────────────────────────────────────
+  parts.push(`<div class="auth-banner">
+    <span class="icon">⚠</span>
+    <span>All findings in this report are <strong>unverified</strong>. Manually confirm each one before acting on it or submitting to a bug bounty program.</span>
+  </div>`);
+
+  // ── Severity overview ────────────────────────────────────────────────────
+  const sev = extractSeverityCounts(data);
+  parts.push(`<div class="section-label">Severity Overview</div>
+  <div class="sev-strip">
+    ${sevBox('crit', sev.crit, 'Critical')}
+    ${sevBox('high', sev.high, 'High')}
+    ${sevBox('med',  sev.med,  'Medium')}
+    ${sevBox('low',  sev.low,  'Low')}
+    ${sevBox('info-b', sev.info, 'Info')}
+  </div>`);
+
+  // ── Executive summary ────────────────────────────────────────────────────
+  parts.push(`<div class="section-wrap">
+    <div class="section-label">Executive Summary</div>
+    <div class="exec-card">
+      <div class="exec-text">${formatExecSummary(data.execSummary)}</div>
+    </div>
+  </div>`);
+
+  // ── OWASP table ──────────────────────────────────────────────────────────
+  parts.push(`<div class="section-wrap">
+    <div class="section-label">OWASP Top 10 (2021) — Coverage</div>
+    <div class="owasp-wrap">
+      <table class="owasp-table">
+        <thead><tr><th>ID</th><th>Category</th><th>Tool(s)</th></tr></thead>
+        <tbody>
+          ${owaspRows()}
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+
+  // ── Tool sections ─────────────────────────────────────────────────────────
+  parts.push(`<div class="section-label">Detailed Findings by Tool</div>`);
+  if (!data.tools.length) {
+    parts.push(`<div style="color:var(--text-faint);padding:16px 0;font-size:13px">No tool data recorded.</div>`);
+  } else {
+    data.tools.forEach((tool, i) => {
+      parts.push(buildToolSection(tool, i));
+    });
+  }
+
+  // ── Next steps ─────────────────────────────────────────────────────────
+  if (data.nextSteps.length) {
+    parts.push(`<div class="section-wrap" style="margin-top:28px">
+      <div class="section-label">Recommended Next Steps</div>
+      <div class="steps-card">
+        ${data.nextSteps.map((s, i) => `
+          <div class="step-item">
+            <div class="step-num">${i + 1}</div>
+            <div class="step-text">${inlineMd(s)}</div>
+          </div>`).join('')}
+      </div>
+    </div>`);
+  }
+
+  // ── Footer ──────────────────────────────────────────────────────────────
+  parts.push(`<div class="report-footer">
+    <span>Generated by Sudarshan AI &nbsp;·&nbsp; ${esc(data.generated || '')}</span>
+    <span class="unverified-note">⚠ All findings require manual verification</span>
+  </div>`);
+
+  return parts.join('\n');
+}
+
+/* ── TOOL SECTION BUILDER ────────────────────────────────────────────────── */
+function buildToolSection(tool, idx) {
+  const name      = tool.name;
+  const raw       = tool.rawOutput || '';
+  const analysis  = tool.analysis  || '';
+
+  // Determine state
+  const isSkipped = raw.includes('[NOT INSTALLED]') || raw.startsWith('Skipped') || raw.startsWith('N/A');
+  const isTimeout = raw.includes('[TIMEOUT]');
+  const isError   = analysis.includes('[OLLAMA ERROR]');
+  const isEmpty   = raw.trim() === '' && analysis.trim() === '';
+
+  let dotClass = 'dot-ok';
+  let summary  = '';
+  if (isSkipped) { dotClass = 'dot-skip';    summary = 'not installed / skipped'; }
+  else if (isTimeout) { dotClass = 'dot-timeout'; summary = 'timed out'; }
+  else if (isError)   { dotClass = 'dot-error';   summary = 'analysis error'; }
+  else if (isEmpty)   { dotClass = 'dot-skip';    summary = 'no data'; }
+  else {
+    summary = buildToolSummary(name, raw, analysis);
+  }
+
+  // Render raw content based on tool type
+  let rawHtml = '';
+  if (name === 'subfinder') {
+    rawHtml = buildSubdomainView(raw);
+  } else if (name === 'katana') {
+    rawHtml = buildKatanaView(raw);
+  } else if (name === 'ffuf') {
+    rawHtml = buildFfufTable(raw);
+  } else {
+    rawHtml = buildRawBlock(raw, name);
+  }
+
+  const hasRaw = raw && !isSkipped && !isEmpty;
+
+  return `
+  <div class="tool-section" id="tool-${idx}">
+    <div class="tool-header" onclick="toggleTool(${idx})">
+      <div class="tool-state-dot ${dotClass}"></div>
+      <div class="tool-name">${esc(name)}</div>
+      <div class="tool-summary">${esc(summary)}</div>
+      ${toolBadges(name, raw, analysis)}
+      <div class="tool-chevron">›</div>
+    </div>
+    <div class="tool-body">
+      ${buildAnalysisBlock(analysis, isError, isSkipped, isTimeout)}
+      ${hasRaw ? rawHtml : ''}
+    </div>
+  </div>`;
+}
+
+function buildAnalysisBlock(analysis, isError, isSkipped, isTimeout) {
+  if (isSkipped) {
+    return `<div class="skipped-note">○ Tool not installed or skipped — no analysis available.</div>`;
+  }
+  if (isTimeout) {
+    return `<div class="skipped-note">◷ Tool timed out — try increasing timeout or narrowing scope.</div>`;
+  }
+  if (isError || analysis.includes('[OLLAMA ERROR]')) {
+    return `<div class="ollama-error">Ollama AI analysis failed — check that Ollama is running and the model is pulled.</div>`;
+  }
+  if (!analysis || analysis.trim() === '') {
+    return `<div class="skipped-note">— No AI analysis recorded.</div>`;
+  }
+
+  // Extract and render finding chips from analysis text
+  const chips  = extractFindingChips(analysis);
+  const chipHtml = chips.length
+    ? `<div class="finding-chips">${chips.map(c => `<span class="finding-chip ${c.sev}">${esc(c.sev.toUpperCase())} &middot; ${esc(c.label)}</span>`).join('')}</div>`
+    : '';
+
+  const cleanedAnalysis = analysis
+    .replace(/^\s*\d+\.\s*/gm, '')  // strip leading numbering for cleaner display
+    .trim();
+
+  return `
+  <div class="analysis-block">
+    <div class="analysis-label">AI Analysis — Sudarshan</div>
+    <div class="analysis-text">${formatAnalysisText(cleanedAnalysis)}</div>
+    ${chipHtml}
+  </div>`;
+}
+
+/* ── SUBDOMAIN VIEW ──────────────────────────────────────────────────────── */
+function buildSubdomainView(raw) {
+  const subs = raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('['));
+  if (!subs.length) return buildRawBlock(raw, 'subfinder');
+
+  const pillsHtml = subs.map(s =>
+    `<div class="sub-pill">${esc(s)}</div>`
+  ).join('');
+
+  return `
+  <div style="border-bottom:1px solid var(--border-dim)">
+    <div style="padding:10px 18px 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:600">
+      Subdomains found — ${subs.length}
+    </div>
+    <div class="subdomain-list">${pillsHtml}</div>
+  </div>
+  ${buildRawBlockToggle(raw, 'subfinder')}`;
+}
+
+/* ── KATANA / ENDPOINT VIEW ──────────────────────────────────────────────── */
+function buildKatanaView(raw) {
+  if (raw.includes('[TIMEOUT]') || raw.includes('[NOT INSTALLED]')) return buildRawBlock(raw, 'katana');
+
+  const urls = raw.split('\n').map(l => l.trim()).filter(l => l.startsWith('http'));
+  if (!urls.length) return buildRawBlock(raw, 'katana');
+
+  // Separate internal vs external
+  const allUrls = urls.map(u => {
+    try { return { url: u, host: new URL(u).hostname }; } catch { return { url: u, host: '—' }; }
+  });
+
+  // Group: api endpoints, assets, external
+  const apis      = allUrls.filter(u => u.url.includes('/api/'));
+  const assets    = allUrls.filter(u => u.url.includes('/assets/'));
+  const external  = allUrls.filter(u => !u.url.includes('/api/') && !u.url.includes('/assets/') && !u.url.match(/yaswant|localhost|127\./));
+  const other     = allUrls.filter(u => !apis.includes(u) && !assets.includes(u) && !external.includes(u));
+
+  const renderGroup = (label, items) => {
+    if (!items.length) return '';
+    return `
+    <div style="margin-bottom:1px">
+      <div style="padding:8px 12px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);background:var(--surface-2)">${esc(label)} — ${items.length}</div>
+      <table class="endpoint-table">
+        <thead><tr><th>URL</th><th>Host</th></tr></thead>
+        <tbody>
+          ${items.map(u => `<tr>
+            <td class="ep-url"><a href="${esc(u.url)}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:none">${esc(u.url)}</a></td>
+            <td class="ep-meta">${esc(u.host)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  };
+
+  return `
+  <div style="border-bottom:1px solid var(--border-dim)">
+    <div style="padding:10px 18px 2px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:600">
+      Endpoints crawled — ${urls.length}
+    </div>
+    ${renderGroup('API Endpoints', apis)}
+    ${renderGroup('Other Pages', other)}
+    ${renderGroup('Asset Files', assets)}
+    ${renderGroup('External URLs', external)}
+  </div>
+  ${buildRawBlockToggle(raw, 'katana')}`;
+}
+
+/* ── FFUF TABLE ──────────────────────────────────────────────────────────── */
+function buildFfufTable(raw) {
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('['));
+  if (!lines.length) return buildRawBlock(raw, 'ffuf');
+
+  // Parse lines like: "path   [Status: 200, Size: ...]"
+  const entries = lines.map(l => {
+    const m = l.match(/^(\S+)\s+\[Status:\s*(\d+),\s*Size:\s*(\d+),\s*Words:\s*(\d+),\s*Lines:\s*(\d+),\s*Duration:\s*(\S+)/);
+    if (m) return { path: m[1], status: m[2], size: m[3], words: m[4], lines: m[5], dur: m[6] };
+    return null;
+  }).filter(Boolean);
+
+  if (!entries.length) return buildRawBlock(raw, 'ffuf');
+
+  // Sort: 200 first, 301, then 403
+  const priority = { '200': 0, '301': 1, '302': 1, '403': 2 };
+  entries.sort((a, b) => (priority[a.status] ?? 3) - (priority[b.status] ?? 3));
+
+  const statusClass = s => s === '200' ? 's200' : s === '301' || s === '302' ? 's301' : s === '403' ? 's403' : '';
+  const statusBadge = s => {
+    const cls = statusClass(s);
+    const color = s === '200' ? 'var(--low)' : s === '301' ? 'var(--info)' : 'var(--text-faint)';
+    return `<span style="font-family:var(--mono);font-size:11px;color:${color}">${s}</span>`;
+  };
+
+  // Flag interesting paths
+  const interesting = ['admin', '.env', '.git', 'wp-admin', 'phpmyadmin', 'backup', 'config', 'debug', 'console', 'swagger', 'graphql', 'api', 'actuator', 'metrics'];
+  const isInteresting = path => interesting.some(k => path.toLowerCase().includes(k));
+
+  return `
+  <div style="border-bottom:1px solid var(--border-dim)">
+    <div style="padding:10px 18px 2px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:600">
+      Paths discovered — ${entries.length}
+    </div>
+    <table class="ffuf-table">
+      <thead><tr><th>Path</th><th>Status</th><th>Size</th><th>Duration</th><th>Note</th></tr></thead>
+      <tbody>
+        ${entries.map(e => `
+        <tr style="${isInteresting(e.path) ? 'background:rgba(224,140,62,.04)' : ''}">
+          <td class="ffuf-path">${esc('/' + e.path)}</td>
+          <td style="text-align:center">${statusBadge(e.status)}</td>
+          <td class="ffuf-note">${esc(e.size)}b</td>
+          <td class="ffuf-note">${esc(e.dur)}</td>
+          <td>${isInteresting(e.path) ? `<span style="font-size:10px;color:var(--high);font-family:var(--mono)">interesting</span>` : ''}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  ${buildRawBlockToggle(raw, 'ffuf')}`;
+}
+
+/* ── RAW OUTPUT BLOCK ────────────────────────────────────────────────────── */
+function buildRawBlock(raw, name) {
+  if (!raw) return '';
+  return `
+  <div>
+    <pre style="padding:14px 18px;font-family:var(--mono);font-size:11.5px;color:#7D8A98;
+                white-space:pre-wrap;word-break:break-all;line-height:1.55;max-height:300px;
+                overflow-y:auto;background:#0A0D12;border-top:1px solid var(--border-dim)">${esc(raw)}</pre>
+  </div>`;
+}
+
+function buildRawBlockToggle(raw, name) {
+  if (!raw) return '';
+  const id = `raw-${name}-${Math.random().toString(36).slice(2,7)}`;
+  return `
+  <div class="raw-toggle" id="toggle-${id}" onclick="toggleRaw('${id}')">
+    <span class="raw-chevron">›</span>
+    <span>Raw output</span>
+    <span style="margin-left:auto;font-family:var(--mono);font-size:10.5px">${raw.split('\n').length} lines</span>
+  </div>
+  <div class="raw-output" id="${id}">
+    <pre>${esc(raw)}</pre>
+  </div>`;
+}
+
+/* ── HELPERS ─────────────────────────────────────────────────────────────── */
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function metaPill(key, val) {
+  return `<div class="meta-pill"><span class="pill-key">${esc(key)}</span><span class="pill-val">${esc(val)}</span></div>`;
+}
+
+function sevBox(cls, count, label) {
+  return `<div class="sev-box ${cls}"><div class="sev-count">${count}</div><div class="sev-label">${label}</div></div>`;
+}
+
+function shortModel(m) {
+  if (!m) return '—';
+  if (m.includes('WhiteRabbitNeo')) return 'WhiteRabbitNeo-8B';
+  if (m.includes('llama3')) return 'llama3.1';
+  if (m.includes('deepseek')) return 'deepseek-coder-v2';
+  return m.split('/').pop().split(':')[0];
+}
+
+function extractSeverityCounts(data) {
+  const counts = { crit: 0, high: 0, med: 0, low: 0, info: 0 };
+  const text = data.tools.map(t => t.analysis).join('\n').toLowerCase();
+  const patterns = [
+    [/severity:\s*critical/g,  'crit'],
+    [/severity:\s*high/g,      'high'],
+    [/severity:\s*medium/g,    'med'],
+    [/severity:\s*low/g,       'low'],
+    [/severity:\s*info/g,      'info'],
+  ];
+  patterns.forEach(([re, key]) => {
+    const m = text.match(re);
+    if (m) counts[key] += m.length;
+  });
+  return counts;
+}
+
+function extractFindingChips(analysis) {
+  const chips = [];
+  // Match patterns like "Severity: High" or "severity of High" or OWASP category references
+  const re = /severity[:\s]+([a-z]+)/gi;
+  let m;
+  while ((m = re.exec(analysis)) !== null) {
+    const sev = m[1].toLowerCase();
+    if (['critical','high','medium','low','info'].includes(sev)) {
+      // Try to find nearby topic
+      const before = analysis.slice(Math.max(0, m.index - 80), m.index);
+      const topicM = before.match(/[`"]([^`"]+)[`"]/) || before.match(/\b([A-Z][a-zA-Z\s]+)\s*[-–]/);
+      const label  = topicM ? topicM[1].trim().slice(0, 30) : sev;
+      const sevKey = sev === 'medium' ? 'med' : sev === 'critical' ? 'crit' : sev;
+      if (!chips.find(c => c.label === label && c.sev === sevKey)) {
+        chips.push({ sev: sevKey, label });
+      }
+    }
+  }
+  return chips.slice(0, 6); // max 6 chips
+}
+
+function toolBadges(name, raw, analysis) {
+  if (raw.includes('[NOT INSTALLED]')) return `<span class="badge skip">skipped</span>`;
+  if (raw.includes('[TIMEOUT]'))       return `<span class="badge med">timeout</span>`;
+  if (analysis.includes('[OLLAMA ERROR]')) return `<span class="badge skip">no AI</span>`;
+
+  // Count severity mentions
+  const sevRe = /severity[:\s]+([a-z]+)/gi;
+  let m; const found = {};
+  while ((m = sevRe.exec(analysis)) !== null) {
+    const s = m[1].toLowerCase();
+    if (['critical','high','medium','low','info'].includes(s)) found[s] = (found[s]||0)+1;
+  }
+  const keys = ['critical','high','medium','low','info'].filter(k => found[k]);
+  if (!keys.length) return '';
+  const topKey = keys[0];
+  const cls = topKey === 'critical' ? 'crit' : topKey === 'high' ? 'high' : topKey === 'medium' ? 'med' : topKey === 'low' ? 'low' : 'info';
+  return `<span class="badge ${cls}">${found[topKey]} ${topKey}</span>`;
+}
+
+function buildToolSummary(name, raw, analysis) {
+  if (name === 'subfinder') {
+    const lines = raw.split('\n').filter(l => l.trim() && !l.startsWith('['));
+    return `${lines.length} subdomains discovered`;
+  }
+  if (name === 'katana') {
+    const urls = raw.split('\n').filter(l => l.startsWith('http'));
+    return `${urls.length} endpoints crawled`;
+  }
+  if (name === 'ffuf') {
+    const entries = raw.split('\n').filter(l => l.includes('[Status:'));
+    const s200    = entries.filter(l => l.includes('Status: 200')).length;
+    const s301    = entries.filter(l => l.includes('Status: 301')).length;
+    return `${entries.length} paths found · ${s200} open · ${s301} redirected`;
+  }
+  if (name === 'httpx') return 'not installed';
+  if (name === 'sqlmap') return raw.includes('Skipped') ? 'skipped (not enabled)' : raw.slice(0, 60);
+  if (name === 'nuclei') return raw.includes('[NOT INSTALLED]') ? 'not installed' : `${raw.split('\n').length} lines of output`;
+  return raw.slice(0, 60).replace(/\n/g, ' ') || 'no data';
+}
+
+function formatExecSummary(text) {
+  if (!text) return '<span style="color:var(--text-faint)">No executive summary generated.</span>';
+  if (text.startsWith('[OLLAMA ERROR]')) {
+    return `<span style="color:var(--crit);font-family:var(--mono)">✗ Ollama error — executive summary not available. Make sure Ollama is running and the model is pulled.</span>`;
+  }
+  // Convert numbered list items to styled paragraphs
+  const formatted = text
+    .replace(/(\d+\.\s+)/g, '\n$1')
+    .trim()
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l)
+    .map(l => `<p>${inlineMd(l)}</p>`)
+    .join('');
+  return formatted;
+}
+
+function formatAnalysisText(text) {
+  if (!text) return '';
+  return text
+    .split('\n')
+    .map(l => {
+      const tl = l.trim();
+      if (!tl) return '';
+      if (/^[-•]\s/.test(tl))  return `<div style="padding-left:16px;position:relative"><span style="position:absolute;left:0;color:var(--accent)">·</span>${inlineMd(tl.replace(/^[-•]\s/, ''))}</div>`;
+      if (/^\d+\./.test(tl))   return `<div style="padding-left:20px;position:relative"><span style="position:absolute;left:0;color:var(--accent);font-family:var(--mono);font-size:11px">${tl.match(/^\d+/)[0]}.</span>${inlineMd(tl.replace(/^\d+\.\s*/, ''))}</div>`;
+      return `<div>${inlineMd(tl)}</div>`;
+    })
+    .join('');
+}
+
+function inlineMd(text) {
+  return esc(text)
+    .replace(/`([^`]+)`/g,        '<code style="font-family:var(--mono);font-size:11.5px;background:var(--surface-2);padding:1px 5px;border-radius:3px">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,  '<strong style="color:var(--text)">$1</strong>')
+    .replace(/\*([^*]+)\*/g,      '<em>$1</em>');
+}
+
+function owaspRows() {
+  const rows = [
+    ['A01', 'Broken Access Control',              'ffuf'],
+    ['A02', 'Cryptographic Failures',             'nuclei / testssl.sh'],
+    ['A03', 'Injection (SQLi / XSS)',             'sqlmap, nuclei'],
+    ['A04', 'Insecure Design',                    'semgrep'],
+    ['A05', 'Security Misconfiguration',          'nuclei, ffuf'],
+    ['A06', 'Vulnerable & Outdated Components',   'nuclei, pip-audit, npm audit'],
+    ['A07', 'Authentication Failures',            'nuclei'],
+    ['A08', 'Software & Data Integrity Failures', 'gitleaks'],
+    ['A09', 'Logging & Monitoring Failures',      'manual review'],
+    ['A10', 'SSRF',                               'nuclei'],
+  ];
+  return rows.map(([id, cat, tools]) => `
+    <tr>
+      <td class="owasp-id">${esc(id)}</td>
+      <td>${esc(cat)}</td>
+      <td class="owasp-tools">${esc(tools)}</td>
+    </tr>`).join('');
+}
+
+/* ── INTERACTIONS ────────────────────────────────────────────────────────── */
+function wireInteractions(root) {
+  // Tool sections start collapsed; open first one if it has data
+  const sections = root.querySelectorAll('.tool-section');
+  sections.forEach((s, i) => {
+    const dot = s.querySelector('.tool-state-dot');
+    if (dot && (dot.classList.contains('dot-ok') || dot.classList.contains('dot-timeout')) && i === 0) {
+      s.classList.add('open');
+    }
+  });
+}
+
+function toggleTool(idx) {
+  const el = document.getElementById(`tool-${idx}`);
+  if (el) el.classList.toggle('open');
+}
+
+function toggleRaw(id) {
+  const output  = document.getElementById(id);
+  const toggle  = document.getElementById(`toggle-${id}`);
+  if (!output || !toggle) return;
+  const isOpen = output.classList.contains('visible');
+  output.classList.toggle('visible', !isOpen);
+  toggle.classList.toggle('raw-open', !isOpen);
+}
+</script>
+
+</body>
+</html>

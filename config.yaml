@@ -1,0 +1,11 @@
+ollama:
+  model: "hf.co/redponike/Llama-3-WhiteRabbitNeo-8B-v2.0-GGUF:Q4_K_M"
+  host: "http://localhost:11434"
+
+scan_defaults:
+  nuclei_severity: "low,medium,high,critical"
+  ffuf_wordlist: "/usr/share/wordlists/dirb/common.txt"
+  enable_sqlmap: false
+
+report:
+  output_dir: "reports"

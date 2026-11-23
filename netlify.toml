@@ -1,0 +1,5 @@
+# This repository is an Electron/Flask app, not a Hugo site.
+# Netlify serves the self-contained static demo (mock data, no backend).
+[build]
+  command = ""
+  publish = "demo"

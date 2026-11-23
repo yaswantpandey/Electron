@@ -1,0 +1,6 @@
+# Sudarshan AI is an Electron desktop app; the deployable web site is the
+# self-contained static demo in demo/ (mock scan data, no backend required).
+[build]
+  publish = "demo"
+  # No build step is needed — the demo is plain HTML/JS.
+  command = "echo 'No build step required: serving static demo/'"
